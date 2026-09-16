@@ -293,3 +293,88 @@
   font-size: 28px;
   color: var(--gold);
 }
+
+
+
+/* ----------------------------------------------------------- */
+/* ── AÑADIR AL FINAL de src/pages/Menu.css ── */
+
+.menu-card__img-link {
+  display: block;
+  text-decoration: none;
+}
+
+.menu-card__name-link {
+  text-decoration: none;
+}
+
+.menu-card__name-link:hover .menu-card__name {
+  color: var(--gold);
+}
+
+/* Overlay hover en imagen */
+.menu-card__img-wrap {
+  position: relative;
+  height: 200px;
+  overflow: hidden;
+}
+
+.menu-card__hover-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 12, 7, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.25s;
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.menu-card__img-link:hover .menu-card__hover-overlay {
+  opacity: 1;
+}
+
+/* Botones de acción en tarjeta */
+.menu-card__actions {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.menu-card__btn-add {
+  background: var(--gold);
+  border: none;
+  border-radius: var(--radius);
+  color: #0f0c07;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 11px 14px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+  text-transform: uppercase;
+}
+
+.menu-card__btn-add:hover {
+  background: #e0b94a;
+  transform: translateY(-1px);
+}
+
+.menu-card__btn-add--done {
+  background: #2a6e2a;
+  color: #fff;
+}
+
+.menu-card__btn-detail {
+  font-size: 11px;
+  padding: 11px 14px;
+  white-space: nowrap;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}

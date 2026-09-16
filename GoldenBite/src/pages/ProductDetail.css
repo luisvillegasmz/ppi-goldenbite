@@ -315,3 +315,60 @@
 .related-card__footer { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .related-card__price { font-family: var(--font-serif); font-size: 18px; color: var(--gold); }
 .related-card__btn { font-size: 10px; padding: 8px 12px; }
+
+
+
+
+
+
+
+
+
+/* ── AÑADIR AL FINAL de src/pages/ProductDetail.css ── */
+
+/* Alérgenos */
+.detail-allergens {
+  background: rgba(201, 168, 76, 0.06);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+
+.detail-allergens__label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.detail-allergens__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.detail-allergens__tag {
+  font-size: 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  padding: 3px 8px;
+}
+
+/* Botón añadir: estado done */
+.detail-add__btn--done {
+  background: #2a6e2a !important;
+  border-color: #2a6e2a !important;
+  color: #fff !important;
+  cursor: default;
+}
+
+/* Imágenes relacionadas — links */
+.related-card__img-link {
+  display: block;
+  text-decoration: none;
+}

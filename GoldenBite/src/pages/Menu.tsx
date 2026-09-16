@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useCart } from '../context/CartContext'
+import { dishes } from '../data/dishes'
 import './Menu.css'
 
 const categories = [
@@ -11,75 +13,27 @@ const categories = [
   'Postres & Vinos',
 ]
 
-const dishes = [
-  {
-    id: '1',
-    name: 'The Golden Truffle Burger',
-    category: 'Hamburguesas de Autor',
-    price: 28.5,
-    badges: ['Gourmet', 'Chef Pick'],
-    desc: '220g de Black Angus certificado, láminas de trufa negra Perigord, queso Raclette suizo fundido...',
-    options: ['Poco Hecho', 'Al Punto', 'Hecho'],
-    image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600&q=80',
-  },
-  {
-    id: '2',
-    name: 'Ribeye Añejo 45 Días',
-    category: 'Cortes & Grill',
-    price: 46,
-    badges: ['Sin Gluten', 'Dry Aged'],
-    desc: 'Corte de vaca vieja rubia gallega con 45 días de maduración en seco (Dry Aging). Asado al...',
-    options: ['Pimientos Padrón', 'Puré Robuchon'],
-    image: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=600&q=80',
-  },
-  {
-    id: '3',
-    name: 'Tartar de Wagyu con Caviar',
-    category: 'Entrantes Exclusivos',
-    price: 34,
-    badges: ['A5 Imperial'],
-    desc: 'Solomillo de Wagyu japonés cortado a cuchillo, emulsión de yema curada en ponzu, 10g de...',
-    options: ['+ Caviar (+12€)', 'Receta Estándar'],
-    image: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&q=80',
-  },
-  {
-    id: '4',
-    name: 'Papas Rústicas al Parmesano & Trufa',
-    category: 'Guarniciones Trufadas',
-    price: 14.5,
-    badges: ['Vegetariano', 'Sin Gluten'],
-    desc: 'Papas agrias confitadas en grasa de pato y fritas a tres cocciones, lluvia de Parmigiano Reggiano...',
-    options: ['Aioli Trufado', 'Brava Ahumada'],
-    image: 'https://images.unsplash.com/photo-1518013431117-eb1465fa5752?w=600&q=80',
-  },
-  {
-    id: '5',
-    name: 'Pulpo Braseado al Carbón',
-    category: 'Entrantes Exclusivos',
-    price: 31,
-    badges: ['Del Mar', 'Sin Gluten'],
-    desc: 'Pata de pulpo de roca asada al carbón de marabú, causa limeña ahumada, emulsión de...',
-    options: ['Suave Clásico', 'Toque Intenso'],
-    image: 'https://images.unsplash.com/photo-1559339352-11d035aa65de?w=600&q=80',
-  },
-  {
-    id: '6',
-    name: 'Esfera de Cacao Dorado & Avellana',
-    category: 'Postres & Vinos',
-    price: 16,
-    badges: ['Gourmet', 'Postre Signature'],
-    desc: 'Cúpula de cacao Valrhona 72%, mousse de avellanas del Piamonte tostadas, corazón de...',
-    options: ['Pedro Ximénez (+7€)', 'Sin Maridaje'],
-    image: 'https://images.unsplash.com/photo-1551024506-0bccd828d307?w=600&q=80',
-  },
-]
-
 export default function Menu() {
   const [activeCategory, setActiveCategory] = useState('Todos')
+  const [addedId, setAddedId] = useState<string | null>(null)
+  const { addItem } = useCart()
 
-  const filtered = activeCategory === 'Todos'
-    ? dishes
-    : dishes.filter(d => d.category === activeCategory)
+  const filtered =
+    activeCategory === 'Todos'
+      ? dishes
+      : dishes.filter((d) => d.category === activeCategory)
+
+  const handleQuickAdd = (dish: typeof dishes[0]) => {
+    addItem({
+      id: dish.id,
+      name: dish.name,
+      price: dish.price,
+      quantity: 1,
+      image: dish.image,
+    })
+    setAddedId(dish.id)
+    setTimeout(() => setAddedId(null), 1500)
+  }
 
   return (
     <main className="menu-page">
@@ -104,7 +58,7 @@ export default function Menu() {
       <div className="menu-filters">
         <div className="container menu-filters__inner">
           <div className="menu-filters__tabs">
-            {categories.map(cat => (
+            {categories.map((cat) => (
               <button
                 key={cat}
                 className={`menu-filters__tab ${activeCategory === cat ? 'menu-filters__tab--active' : ''}`}
@@ -114,9 +68,7 @@ export default function Menu() {
               </button>
             ))}
           </div>
-          <button className="menu-filters__extra">
-            ⚙ Filtrar Alérgenos
-          </button>
+          <button className="menu-filters__extra">⚙ Filtrar Alérgenos</button>
         </div>
       </div>
 
@@ -131,20 +83,27 @@ export default function Menu() {
           </p>
 
           <div className="menu-grid">
-            {filtered.map(dish => (
+            {filtered.map((dish) => (
               <div key={dish.id} className="menu-card">
-                <div className="menu-card__img-wrap">
-                  <img src={dish.image} alt={dish.name} className="menu-card__img" />
-                  <div className="menu-card__badges">
-                    {dish.badges.map(b => (
-                      <span key={b} className="badge">{b}</span>
-                    ))}
+                <Link to={`/menu/${dish.id}`} className="menu-card__img-link">
+                  <div className="menu-card__img-wrap">
+                    <img src={dish.image} alt={dish.name} className="menu-card__img" />
+                    <div className="menu-card__badges">
+                      {dish.badges.map((b) => (
+                        <span key={b} className="badge">{b}</span>
+                      ))}
+                    </div>
+                    <span className="menu-card__price">{dish.price.toFixed(2)} €</span>
+                    <div className="menu-card__hover-overlay">
+                      <span>Ver Detalles</span>
+                    </div>
                   </div>
-                  <span className="menu-card__price">{dish.price.toFixed(2)} €</span>
-                </div>
+                </Link>
 
                 <div className="menu-card__body">
-                  <h3 className="menu-card__name">{dish.name}</h3>
+                  <Link to={`/menu/${dish.id}`} className="menu-card__name-link">
+                    <h3 className="menu-card__name">{dish.name}</h3>
+                  </Link>
                   <p className="menu-card__desc">{dish.desc}</p>
 
                   <div className="menu-card__options">
@@ -158,9 +117,17 @@ export default function Menu() {
                     ))}
                   </div>
 
-                  <Link to={`/menu/${dish.id}`} className="menu-card__btn btn-gold">
-                    🛒 Añadir al Carrito
-                  </Link>
+                  <div className="menu-card__actions">
+                    <button
+                      className={`menu-card__btn-add ${addedId === dish.id ? 'menu-card__btn-add--done' : ''}`}
+                      onClick={() => handleQuickAdd(dish)}
+                    >
+                      {addedId === dish.id ? '✓ Añadido' : '🛒 Añadir'}
+                    </button>
+                    <Link to={`/menu/${dish.id}`} className="menu-card__btn-detail btn-outline">
+                      Ver Plato
+                    </Link>
+                  </div>
                 </div>
               </div>
             ))}
@@ -217,7 +184,20 @@ export default function Menu() {
                   </em>
                 </span>
               </div>
-              <button className="btn-gold">🛒 Ordenar Especial</button>
+              <button
+                className="btn-gold"
+                onClick={() =>
+                  addItem({
+                    id: 'insignia',
+                    name: 'Costilla de Wagyu con Oporto & Colmenillas',
+                    price: 58,
+                    quantity: 1,
+                    image: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=200&q=80',
+                  })
+                }
+              >
+                🛒 Ordenar Especial
+              </button>
             </div>
           </div>
         </div>
