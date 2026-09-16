@@ -1,6 +1,12 @@
+// REEMPLAZA el contenido de: src/pages/Checkout.tsx
+// Este archivo agrega la integración real con Firebase Firestore
+
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { collection, addDoc, doc, updateDoc, increment, serverTimestamp } from 'firebase/firestore'
 import { useCart } from '../context/CartContext'
+import { useAuth } from '../context/AuthContext'
+import { db } from '../firebase'
 import './Checkout.css'
 
 type DeliveryMode = 'envio' | 'recogida'
@@ -10,12 +16,14 @@ type TipOption    = 0 | 10 | 15 | 20
 export default function Checkout() {
   const navigate = useNavigate()
   const { items, total, clearCart } = useCart()
+  const { user, profile } = useAuth()
 
   const [delivery, setDelivery]   = useState<DeliveryMode>('envio')
   const [payTab,   setPayTab]     = useState<PaymentTab>('tarjeta')
   const [tip,      setTip]        = useState<TipOption>(15)
   const [invoice,  setInvoice]    = useState(false)
   const [loading,  setLoading]    = useState(false)
+  const [error,    setError]      = useState('')
 
   const [card, setCard] = useState({ holder: '', number: '', expiry: '', cvc: '' })
   const [addr, setAddr] = useState({ street: '', postal: '', notes: '' })
@@ -25,13 +33,67 @@ export default function Checkout() {
   const TIP_AMT   = total * (tip / 100)
   const GRAND     = total + SHIPPING + TAX + TIP_AMT
 
+  const generateOrderCode = () => 'GB-' + Math.floor(Math.random() * 90000 + 10000)
+
   const handlePay = async () => {
+    if (!user) {
+      navigate('/login', { state: { from: '/checkout' } })
+      return
+    }
+
+    setError('')
     setLoading(true)
-    // Aquí iría la integración con pasarela de pago real (Stripe, etc.)
-    // Por ahora simulamos un delay y redirigimos a confirmación
-    await new Promise(r => setTimeout(r, 1800))
-    clearCart()
-    navigate('/confirmacion', { state: { total: GRAND, code: 'GB-' + Math.floor(Math.random() * 90000 + 10000) } })
+
+    try {
+      const orderCode = generateOrderCode()
+
+      // Guardar pedido en Firestore
+      const orderData = {
+        userId:    user.uid,
+        userEmail: user.email,
+        code:      orderCode,
+        items:     items.map(i => ({
+          id:       i.id,
+          name:     i.name,
+          price:    i.price,
+          quantity: i.quantity,
+          image:    i.image,
+          cooking:  i.cooking || null,
+        })),
+        subtotal:   total,
+        shipping:   SHIPPING,
+        tax:        TAX,
+        tip:        TIP_AMT,
+        total:      GRAND,
+        delivery,
+        paymentMethod: payTab,
+        address: delivery === 'envio' ? {
+          street: addr.street,
+          postal: addr.postal,
+          notes:  addr.notes,
+        } : null,
+        invoiceRequested: invoice,
+        status:    'processing',
+        createdAt: serverTimestamp(),
+      }
+
+      await addDoc(collection(db, 'orders'), orderData)
+
+      // Sumar puntos al usuario (1 punto por euro)
+      const pointsEarned = Math.floor(GRAND)
+      await updateDoc(doc(db, 'users', user.uid), {
+        points: increment(pointsEarned),
+      })
+
+      clearCart()
+      navigate('/confirmacion', {
+        state: { total: GRAND, code: orderCode, points: pointsEarned }
+      })
+    } catch (e) {
+      console.error('Error saving order:', e)
+      setError('Hubo un problema al procesar tu pedido. Intenta de nuevo.')
+      setLoading(false)
+    }
   }
 
   const setCardField = (f: keyof typeof card) =>
@@ -59,6 +121,17 @@ export default function Checkout() {
           Confirmación de comandas exclusivas preparadas por nuestro equipo culinario
           bajo demanda y entregadas con protocolo White-Glove climatizado.
         </p>
+
+        {/* Aviso sesión */}
+        {!user && (
+          <div className="auth-error" style={{ marginBottom: '24px' }}>
+            ⚠ Debes iniciar sesión para finalizar tu compra.{' '}
+            <a href="/login" style={{ color: 'var(--gold)', textDecoration: 'underline' }}>Iniciar sesión</a>
+          </div>
+        )}
+
+        {/* Error de pago */}
+        {error && <div className="auth-error" style={{ marginBottom: '24px' }}>{error}</div>}
 
         <div className="checkout-layout">
           {/* ── COLUMNA IZQUIERDA ── */}
@@ -98,23 +171,9 @@ export default function Checkout() {
               {delivery === 'envio' && (
                 <div className="checkout-address">
                   <div className="checkout-addr-row">
-                    <div className="checkout-field">
-                      <label>Sede Gastronómica de Despacho</label>
-                      <select>
-                        <option>Madrid — Barrio de Salamanca (C/ Velá…</option>
-                        <option>Barcelona — Sarrià</option>
-                        <option>Ciudad de México — Polanco</option>
-                      </select>
-                    </div>
-                    <div className="checkout-field">
-                      <label>Franja Horaria Estimada</label>
-                      <input type="text" defaultValue="Hoy, Servicio Cena — 21:00 a 21:30" />
-                    </div>
-                  </div>
-                  <div className="checkout-addr-row">
                     <div className="checkout-field" style={{ flex: 2 }}>
                       <label>Dirección Privada de Entrega</label>
-                      <input type="text" placeholder="Calle de Serrano, 84, Planta 4ª Izq." value={addr.street} onChange={setAddrField('street')} />
+                      <input type="text" placeholder="Calle, número, piso..." value={addr.street} onChange={setAddrField('street')} />
                     </div>
                     <div className="checkout-field">
                       <label>Código Postal</label>
@@ -122,7 +181,12 @@ export default function Checkout() {
                     </div>
                   </div>
                   <div className="checkout-field">
-                    <input type="text" placeholder="Instrucciones al sommelier o conserje (ej: timbre de servicio, llamar al móvil al llegar)" value={addr.notes} onChange={setAddrField('notes')} />
+                    <input
+                      type="text"
+                      placeholder="Instrucciones al sommelier o conserje..."
+                      value={addr.notes}
+                      onChange={setAddrField('notes')}
+                    />
                   </div>
                 </div>
               )}
@@ -132,7 +196,7 @@ export default function Checkout() {
             <div className="checkout-section">
               <div className="checkout-section__header">
                 <span className="checkout-section__letter">B</span>
-                <h2 className="checkout-section__title">Método de Pago Concriptado</h2>
+                <h2 className="checkout-section__title">Método de Pago Encriptado</h2>
                 <span className="badge">🔒 Garantía Bancaria 3D Secure</span>
               </div>
 
@@ -153,7 +217,7 @@ export default function Checkout() {
                   </div>
                   <div className="checkout-field">
                     <label>Titular de la Tarjeta</label>
-                    <input type="text" placeholder="ALEJANDRO DE LA VEGA" value={card.holder} onChange={setCardField('holder')} />
+                    <input type="text" placeholder="NOMBRE APELLIDO" value={card.holder} onChange={setCardField('holder')} />
                   </div>
                   <div className="checkout-field">
                     <label>Número de Tarjeta</label>
@@ -183,6 +247,7 @@ export default function Checkout() {
                 <div className="checkout-club-pay">
                   <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
                     Tu crédito Club Privé se aplicará automáticamente al confirmar el pedido.
+                    {profile && <span> Puntos disponibles: <strong style={{ color: 'var(--gold)' }}>{profile.points ?? 0}</strong></span>}
                   </p>
                 </div>
               )}
@@ -213,11 +278,19 @@ export default function Checkout() {
             </div>
 
             {/* Botón pagar */}
-            <button className="btn-gold checkout-pay-btn" onClick={handlePay} disabled={loading}>
-              {loading ? 'Procesando pago...' : `🔒 Confirmar y Pagar ${GRAND.toFixed(2)} € →`}
+            <button
+              className="btn-gold checkout-pay-btn"
+              onClick={handlePay}
+              disabled={loading || !user}
+            >
+              {loading
+                ? 'Procesando pedido...'
+                : !user
+                  ? '🔒 Inicia sesión para pagar'
+                  : `🔒 Confirmar y Pagar ${GRAND.toFixed(2)} € →`}
             </button>
             <p className="checkout-legal">
-              Transacción procesada por Redsys Haute Banque bajo directiva europea PSD2 / SCA.
+              Transacción procesada de forma segura. Al confirmar, aceptas nuestros Términos de Servicio.
             </p>
           </div>
 
@@ -245,8 +318,8 @@ export default function Checkout() {
             <div className="checkout-summary__breakdown">
               <div className="checkout-summary__row"><span>Subtotal Gastronómico</span><span>{total.toFixed(2)} €</span></div>
               <div className="checkout-summary__row"><span>Envío White-Glove Climatizado</span><span>{SHIPPING.toFixed(2)} €</span></div>
-              <div className="checkout-summary__row"><span>Impuestos (IVA 10% comida / 21% bodega)</span><span>{TAX.toFixed(2)} €</span></div>
-              <div className="checkout-summary__row gold"><span>Gratificación Sommelier &amp; Sala ({tip}%)</span><span>+ {TIP_AMT.toFixed(2)} €</span></div>
+              <div className="checkout-summary__row"><span>Impuestos (IVA 10%)</span><span>{TAX.toFixed(2)} €</span></div>
+              <div className="checkout-summary__row gold"><span>Gratificación ({tip}%)</span><span>+ {TIP_AMT.toFixed(2)} €</span></div>
             </div>
 
             <div className="checkout-summary__total">
@@ -255,20 +328,20 @@ export default function Checkout() {
             </div>
             <p className="checkout-summary__total-sub">Cargos finales con IVA</p>
 
-            <div className="checkout-guarantee">
-              <span>🌡</span>
-              <div>
-                <p className="checkout-guarantee__title">Garantía Térmica &amp; Presentación Impecable</p>
-                <p className="checkout-guarantee__desc">
-                  Nuestras cajas selladas al vacío preservan la temperatura exacta (64°C en carnes / 14°C en vinos).
-                </p>
+            {/* Puntos a ganar */}
+            {user && (
+              <div style={{
+                background: 'rgba(201,168,76,0.08)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius)',
+                padding: '12px 16px',
+                marginTop: '16px',
+                fontSize: '13px',
+                color: 'var(--text-muted)',
+              }}>
+                ⭐ Ganarás <strong style={{ color: 'var(--gold)' }}>{Math.floor(GRAND)} puntos</strong> Gourmet Club con este pedido.
               </div>
-            </div>
-
-            <div className="checkout-hotline">
-              <span>🍴 Línea Directa Maître &amp; Sommelier</span>
-              <a href="tel:+34910884219" className="checkout-hotline__cta">Llamar</a>
-            </div>
+            )}
           </div>
         </div>
       </div>

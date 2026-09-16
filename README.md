@@ -7,4 +7,5 @@
 1. Node JS
 
 Entorno:
+npm install
 npm run dev

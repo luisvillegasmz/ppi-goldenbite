@@ -1,11 +1,19 @@
+// REEMPLAZA tu archivo: src/pages/Login.tsx
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { signInWithEmailAndPassword } from 'firebase/auth'
 import { auth } from '../firebase'
+import { useAuth } from '../context/AuthContext'
 import './Login.css'
 
 export default function Login() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const { signInWithGoogle } = useAuth()
+
+  // Redirigir de vuelta si venía de una ruta protegida
+  const from = (location.state as any)?.from?.pathname || '/'
+
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
@@ -19,9 +27,8 @@ export default function Login() {
     setLoading(true)
     try {
       await signInWithEmailAndPassword(auth, email, password)
-      navigate('/')                        // redirige al home si el login es exitoso
+      navigate(from, { replace: true })
     } catch (err: any) {
-      // Traducimos los errores de Firebase al español
       if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
         setError('Correo o contraseña incorrectos.')
       } else if (err.code === 'auth/too-many-requests') {
@@ -29,6 +36,19 @@ export default function Login() {
       } else {
         setError('Error al iniciar sesión. Intenta de nuevo.')
       }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleGoogle = async () => {
+    setError('')
+    setLoading(true)
+    try {
+      await signInWithGoogle()
+      navigate(from, { replace: true })
+    } catch (err: any) {
+      setError('Error al iniciar sesión con Google.')
     } finally {
       setLoading(false)
     }
@@ -63,10 +83,7 @@ export default function Login() {
 
           {/* Botones sociales */}
           <div className="auth-social">
-            <button className="auth-social__btn">
-              <span>🍎</span> Continuar con Apple
-            </button>
-            <button className="auth-social__btn">
+            <button className="auth-social__btn" onClick={handleGoogle} disabled={loading}>
               <span>G</span> Continuar con Google
             </button>
           </div>
@@ -80,12 +97,12 @@ export default function Login() {
 
           <form onSubmit={handleSubmit} className="auth-form">
             <div className="auth-field">
-              <label>Correo Electrónico o Número de Socio</label>
+              <label>Correo Electrónico</label>
               <div className="auth-field__input-wrap">
                 <span className="auth-field__icon">✉</span>
                 <input
-                  type="text"
-                  placeholder="ej. socio@goldenbite.com o #GB-8921"
+                  type="email"
+                  placeholder="socio@goldenbite.com"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   required
@@ -133,7 +150,7 @@ export default function Login() {
 
           <div className="auth-concierge">
             <span>🛎</span>
-            <p>¿Problemas para acceder con tu membresía? <a href="mailto:concierge@goldenbite.com">Contactar al Concierge</a></p>
+            <p>¿Problemas para acceder? <a href="mailto:concierge@goldenbite.com">Contactar al Concierge</a></p>
           </div>
 
           <p className="auth-switch">
